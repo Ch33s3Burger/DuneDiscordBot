@@ -1,9 +1,11 @@
+import os
 import time
+
 import pandas as pd
 from requests import get, post
 
-key = 'Du6KAnTlafTRjaYemrazK1jMPiTsnM2Z'
-HEADER = {"x-dune-api-key": key}
+DUNE_TOKEN = os.getenv('DUNE_TOKEN')
+HEADER = {"x-dune-api-key": DUNE_TOKEN}
 
 BASE_URL = "https://api.dune.com/api/v1/"
 
@@ -73,11 +75,6 @@ def cancel_query_execution(execution_id):
 
 def get_query_content(query_id):
     execution_id = execute_query(query_id)
-    # response = dune.get_query_status(execution_id)
-    # data = dune.get_query_results(execution_id)
-
-    # print(t)
-
     while True:
         response = get_query_status(execution_id)
         response_status = response.json()['state']
@@ -85,8 +82,9 @@ def get_query_content(query_id):
         if response_status == 'QUERY_STATE_COMPLETED':
             data = get_query_results(execution_id).json()
             break
-        elif response_status == 'QUERY_STATE_FAILED':
+        elif response_status == 'QUERY_STATE_EXECUTING':
+            time.sleep(1)
+        else:
             return None
-        time.sleep(1)
 
     return pd.DataFrame(data=data['result']['rows'])

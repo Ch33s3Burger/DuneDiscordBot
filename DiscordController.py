@@ -5,13 +5,21 @@ import typing
 
 import discord
 
-import formatting
-import queries
+import DuneApiConnector
+import OutputFileCreator
 
-TOKEN = os.getenv('TOKEN')
-GUILD_ID = int(os.getenv('GUILDID'))
+COMMAND_OPTIONS = ['dune', 'help']
+OUTPUT_OPTION_TYPES = ['bar', 'line', 'scatter', 'table']
+HELP_TEXT = 'Commands: !dune QUERY_ID + (RESULT_TYPE)\n\t' \
+            'QUERY_ID: Dune Query ID\n\t' \
+            'RESUlT_TYPE: Optional parameter to define result type. Options:\n\t\t' \
+            'line: Line Graph\n\t\t' \
+            'bar: Bar Graph\n\t\t' \
+            'scatter: Scatter Graph\n\t\t' \
+            'table: Table'
 
-print(TOKEN, GUILD_ID)
+DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+GUILD_ID = int(os.getenv('GUILD_ID'))
 
 
 def to_thread(func: typing.Callable) -> typing.Coroutine:
@@ -29,20 +37,13 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         if message.author == client.user or not message.content.startswith('!'):
             return
-        channel_id = message.channel.id
-        channel = client.get_channel(channel_id)
-        text = message.content[1:]
-        command_correct = self.check_command(text=text)
+        channel = client.get_channel(message.channel.id)
+        command = message.content[1:]
+        command_correct = self.check_command(command=command)
         if not command_correct:
-            await channel.send(f'Commands: !dune QUERY_ID + (RESULT_TYPE)\n\t'
-                               f'QUERY_ID: Dune Query ID\n\t'
-                               f'RESUlT_TYPE: Optional parameter to define result type. Options:\n\t\t'
-                               f'line: Line Graph\n\t\t'
-                               f'bar: Bar Graph\n\t\t'
-                               f'scatter: Scatter Graph\n\t\t'
-                               f'table: Table')
+            await channel.send(HELP_TEXT)
             return
-        ARGS = text.split(' ')
+        ARGS = command.split(' ')
         await self.process_command(ARGS=ARGS, channel=channel)
 
     async def process_command(self, ARGS, channel):
@@ -63,55 +64,53 @@ class MyClient(discord.Client):
 
     @to_thread
     def process_dune_command(self, query_id, output_type=None):
-        data = queries.get_query_content(query_id)
+        data = DuneApiConnector.get_query_content(query_id)
         if data is None:
             return None
         name = None
         if output_type is None:
             pass
+            # todo add default type
         else:
             output_type = output_type.lower()
             if output_type == 'bar':
-                name = formatting.plot_and_save_bar(data, query_id)
+                name = OutputFileCreator.plot_and_save_bar(data, query_id)
             elif output_type == 'line':
-                name = formatting.plot_and_save_line(data, query_id)
+                name = OutputFileCreator.plot_and_save_line(data, query_id)
             elif output_type == 'scatter':
-                name = formatting.plot_and_save_scatter(data, query_id)
+                name = OutputFileCreator.plot_and_save_scatter(data, query_id)
             elif output_type == 'table':
-                name = self.process_table(data, query_id)
+                name = OutputFileCreator.create_and_save_table(data, query_id)
             else:
                 raise Exception
         return name
 
-    def process_table(self, data, query_id):
-        name = query_id + '_table.csv'
-        data.to_csv(name)
-        return name
-
-    def check_command(self, text):
-        if text is None or text == '':
+    def check_command(self, command):
+        if command is None or command == '':
             return False
-        split_text = text.split(' ')
-        command = split_text[0].lower()
-        if command not in ['dune', 'help']:
+        split_command = command.split(' ')
+        command = split_command[0].lower()
+        if command not in COMMAND_OPTIONS:
             return False
         if command == 'help':
+            # Help prints same output as error
             return False
-        if len(split_text) < 2:
+        if len(split_command) < 2:
             return False
         try:
-            int(split_text[1])
+            int(split_command[1])
         except:
             return False
-        if len(split_text) == 3:
-            output_type = split_text[2].lower()
-            if output_type not in ['bar', 'line', 'scatter', 'table']:
+        if len(split_command) == 3:
+            output_type = split_command[2].lower()
+            if output_type not in OUTPUT_OPTION_TYPES:
                 return False
         return True
 
 
-intents = discord.Intents.default()
-intents.message_content = True
+if __name__ == '__main__':
+    intents = discord.Intents.default()
+    intents.message_content = True
 
-client = MyClient(intents=intents)
-client.run(TOKEN)
+    client = MyClient(intents=intents)
+    client.run(DISCORD_BOT_TOKEN)
