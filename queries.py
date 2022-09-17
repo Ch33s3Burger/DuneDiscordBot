@@ -85,6 +85,8 @@ def get_query_content(query_id):
         if response_status == 'QUERY_STATE_COMPLETED':
             data = get_query_results(execution_id).json()
             break
+        elif response_status == 'QUERY_STATE_FAILED':
+            return None
         time.sleep(1)
 
     return pd.DataFrame(data=data['result']['rows'])
