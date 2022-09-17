@@ -31,11 +31,11 @@ import time
 
 
 # send df and recieve name of file
-def plot_and_save_line(df, title='Dune.com'):
+def plot_and_save_line(df, query_id, title='Dune.com'):
     fig, ax = plt.subplots()
     plt.locator_params(axis='y', nbins=6)
     plt.locator_params(axis='x', nbins=10)
-    plt.plot(df.iloc[:, 1], df.iloc[:, 0])
+    plt.plot(df.iloc[:, 0], df.iloc[:, 1])
     plt.xlabel(list(df)[1])
     plt.ylabel(list(df)[0])
     plt.title(title)
@@ -44,17 +44,17 @@ def plot_and_save_line(df, title='Dune.com'):
     logo = plt.imread('dune.jpg')
     fig.figimage(logo, s[0] / 2 - 40, s[1] / 2 - 30, alpha=.3, zorder=1)
 
-    name = str(time.time()) + '.png'
+    name = query_id + '_line.png'
     plt.savefig(name)
 
     return name
 
 
-def plot_and_save_bar(df, title='Dune.com'):
+def plot_and_save_bar(df, query_id, title='Dune.com'):
     fig, ax = plt.subplots()
     plt.locator_params(axis='y', nbins=6)
     plt.locator_params(axis='x', nbins=10)
-    plt.bar(df.iloc[:, 1], df.iloc[:, 0])
+    plt.bar(df.iloc[:, 0], df.iloc[:, 1])
     plt.xlabel(list(df)[1])
     plt.ylabel(list(df)[0])
     plt.title(title)
@@ -63,17 +63,17 @@ def plot_and_save_bar(df, title='Dune.com'):
     logo = plt.imread('dune.jpg')
     fig.figimage(logo, s[0] / 2 - 40, s[1] / 2 - 30, alpha=.3, zorder=1)
 
-    name = str(time.time()) + '.png'
+    name = query_id + '_bar.png'
     plt.savefig(name)
 
     return name
 
 
-def plot_and_save_scatter(df, title='Dune.com'):
+def plot_and_save_scatter(df, query_id, title='Dune.com'):
     fig, ax = plt.subplots()
     plt.locator_params(axis='y', nbins=6)
     plt.locator_params(axis='x', nbins=10)
-    plt.scatter(df.iloc[:, 1], df.iloc[:, 0])
+    plt.scatter(df.iloc[:, 0], df.iloc[:, 1])
     plt.xlabel(list(df)[1])
     plt.ylabel(list(df)[0])
     plt.title(title)
@@ -82,7 +82,7 @@ def plot_and_save_scatter(df, title='Dune.com'):
     logo = plt.imread('dune.jpg')
     fig.figimage(logo, s[0] / 2 - 40, s[1] / 2 - 30, alpha=.3, zorder=1)
 
-    name = str(time.time()) + '.png'
+    name = query_id + '_scatter.png'
     plt.savefig(name)
 
     return name

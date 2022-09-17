@@ -1,4 +1,7 @@
+import asyncio
+import functools
 import os
+import typing
 
 import discord
 
@@ -9,6 +12,14 @@ TOKEN = os.getenv('TOKEN')
 GUILD_ID = int(os.getenv('GUILDID'))
 
 print(TOKEN, GUILD_ID)
+
+
+def to_thread(func: typing.Callable) -> typing.Coroutine:
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    return wrapper
 
 
 class MyClient(discord.Client):
@@ -26,8 +37,9 @@ class MyClient(discord.Client):
             await channel.send(f'Commands: !dune QUERY_ID + (RESULT_TYPE)\n\t'
                                f'QUERY_ID: Dune Query ID\n\t'
                                f'RESUlT_TYPE: Optional parameter to define result type. Options:\n\t\t'
-                               f'plot: Line Graph\n\t\t'
+                               f'line: Line Graph\n\t\t'
                                f'bar: Bar Graph\n\t\t'
+                               f'scatter: Scatter Graph\n\t\t'
                                f'table: Table')
             return
         ARGS = text.split(' ')
@@ -39,40 +51,42 @@ class MyClient(discord.Client):
             output_type = None
             if len(ARGS) == 3:
                 output_type = ARGS[2]
-            await self.process_dune_command(query_id=ARGS[1], channel=channel, output_type=output_type)
+            await channel.send(f'Executing Dune Query with ID: {ARGS[1]}')
+            name = await self.process_dune_command(query_id=ARGS[1], output_type=output_type)
+            if name is None:
+                await channel.send('Query Failed')
+            else:
+                await channel.send(file=discord.File(name))
+                os.remove(name)
         else:
             raise Exception()
 
-    async def process_dune_command(self, query_id, channel, output_type=None):
+    @to_thread
+    def process_dune_command(self, query_id, output_type=None):
         data = queries.get_query_content(query_id)
         if data is None:
-            await channel.send('Query Failed')
-            return
+            return None
+        name = None
         if output_type is None:
             pass
         else:
+            output_type = output_type.lower()
             if output_type == 'bar':
-                name = await formatting.plot_and_save_bar(data)
-            elif output_type == 'plot':
-                name = formatting.plot_and_save_line(data)
+                name = formatting.plot_and_save_bar(data, query_id)
+            elif output_type == 'line':
+                name = formatting.plot_and_save_line(data, query_id)
             elif output_type == 'scatter':
-                name = await formatting.plot_and_save_scatter(data)
+                name = formatting.plot_and_save_scatter(data, query_id)
             elif output_type == 'table':
-                name = self.process_table(data)
+                name = self.process_table(data, query_id)
             else:
                 raise Exception
-        with open(name, 'rb') as file:
-            await channel.send(file=discord.File(file))
+        return name
 
-
-    def process_table(self, data, channel):
-        pass
-
-    def process_plot(self, data, channel):
-        pass
-
-    def process_bar(self, data, channel):
-        pass
+    def process_table(self, data, query_id):
+        name = query_id + '_table.csv'
+        data.to_csv(name)
+        return name
 
     def check_command(self, text):
         if text is None or text == '':
@@ -85,9 +99,13 @@ class MyClient(discord.Client):
             return False
         if len(split_text) < 2:
             return False
+        try:
+            int(split_text[1])
+        except:
+            return False
         if len(split_text) == 3:
-            output_type = split_text[2]
-            if output_type not in ['bar', 'plot', 'scatter', 'table']:
+            output_type = split_text[2].lower()
+            if output_type not in ['bar', 'line', 'scatter', 'table']:
                 return False
         return True
 
