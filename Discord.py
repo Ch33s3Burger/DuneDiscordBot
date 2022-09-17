@@ -1,26 +1,16 @@
 import interactions
 import pandas as pd
-
+import os
 import queries
 
-TOKEN = 'MTAyMDYzNDY4MDMzNDIzMzYyMQ.G5Zywf.SZvkjN3sEII_ze3Y3EsGUTPUJJhAhgPlFhpeKI'
-GUILD_ID = 1020432806461063169
+TOKEN = os.getenv('TOKEN')
+GUILD_ID = int(os.getenv('GUILDID'))
+
+print(TOKEN, GUILD_ID)
+
 bot = interactions.Client(token=TOKEN)
 
 
-# @bot.command(
-#    name="Dune Query Content",
-#    description="Get Dune Query Content",
-#    scope=GUILD_ID,
-#    options=[
-#       interactions.Option(
-#            name="text",
-#            description="Dune Query ID",
-#            type=interactions.OptionType.STRING,
-#            required=True,
-#        ),
-#    ],
-# )
 @bot.command(
     name="get_dune_query_content",
     description="Get the Dune Query Content as Table/Plot",
