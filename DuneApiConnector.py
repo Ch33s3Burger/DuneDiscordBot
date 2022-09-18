@@ -1,13 +1,26 @@
 import os
 import time
+import asyncio
+import functools
+import typing
 
 import pandas as pd
 from requests import get, post
 
 DUNE_TOKEN = os.getenv('DUNE_TOKEN')
+if DUNE_TOKEN is None:
+    raise EnvironmentError('Set Environment variable: DUNE_TOKEN')
 HEADER = {"x-dune-api-key": DUNE_TOKEN}
 
 BASE_URL = "https://api.dune.com/api/v1/"
+
+
+def to_thread(func: typing.Callable) -> typing.Coroutine:
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    return wrapper
 
 
 def make_api_url(module, action, ID):
@@ -72,7 +85,7 @@ def cancel_query_execution(execution_id):
 
     return response
 
-
+@to_thread
 def get_query_content(query_id):
     execution_id = execute_query(query_id)
     while True:
