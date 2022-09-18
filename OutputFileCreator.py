@@ -37,9 +37,9 @@ def plot_and_save_bar(df, query_id):
     x, y = get_x_and_y_columns(df)
 
     fig, ax = plt.subplots()
-    ax.bar(df[x], df[y], width=10)
-    ax.xlabel(x, fontsize=16)
-    ax.ylabel(y, fontsize=16)
+    plt.bar(df[x], df[y], width=10)
+    plt.xlabel(x, fontsize=16)
+    plt.ylabel(y, fontsize=16)
     ax.xaxis_date()
 
     name = query_id + '_bar.png'
