@@ -20,44 +20,43 @@ def df_columns_to_dt(df):
     return df, datetime_column
 
 
-# send df and recieve name of file
-def plot_and_save_line(df, query_id, title='Dune.com'):
+def plot_and_save_line(df, query_id):
     x, y = get_x_and_y_columns(df)
 
     fig, ax = plt.subplots()
     plt.plot(df[x], df[y])
-    plt.xlabel(x)
-    plt.ylabel(y)
+    plt.xlabel(x, fontsize=16)
+    plt.ylabel(y, fontsize=16)
 
     name = query_id + '_line.png'
-    set_plot_settings_and_save_image(fig, name, title=title)
+    set_plot_settings_and_save_image(fig, name, title=f'Dune Query ID: {query_id}')
     return name
 
 
-def plot_and_save_bar(df, query_id, title='Dune.com'):
+def plot_and_save_bar(df, query_id):
     x, y = get_x_and_y_columns(df)
 
     fig, ax = plt.subplots()
-    plt.bar(df[x], df[y], width=2.3)
-    plt.xlabel(x)
-    plt.ylabel(y)
+    ax.bar(df[x], df[y], width=10)
+    ax.xlabel(x, fontsize=16)
+    ax.ylabel(y, fontsize=16)
+    ax.xaxis_date()
 
     name = query_id + '_bar.png'
-    set_plot_settings_and_save_image(fig, name, title=title)
-    plt.xticks(x, rotation=45)
+    set_plot_settings_and_save_image(fig, name, title=f'Dune Query ID: {query_id}')
     return name
 
 
-def plot_and_save_scatter(df, query_id, title='Dune.com'):
+def plot_and_save_scatter(df, query_id):
     x, y = get_x_and_y_columns(df)
 
     fig, ax = plt.subplots()
     plt.scatter(df[x], df[y])
-    plt.xlabel(x)
-    plt.ylabel(y)
+    plt.xlabel(x, fontsize=16)
+    plt.ylabel(y, fontsize=16)
 
     name = query_id + '_scatter.png'
-    set_plot_settings_and_save_image(fig, name, title=title)
+    set_plot_settings_and_save_image(fig, name, title=f'Dune Query ID: {query_id}')
     return name
 
 

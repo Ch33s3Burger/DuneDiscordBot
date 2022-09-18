@@ -16,6 +16,7 @@ HELP_TEXT = 'Commands: !dune QUERY_ID + (RESULT_TYPE)\n\t' \
             'line: Line Graph\n\t\t' \
             'bar: Bar Graph\n\t\t' \
             'scatter: Scatter Graph\n\t\t' \
+            'single_value: Single Value\n\t\t' \
             'table: Table'
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
