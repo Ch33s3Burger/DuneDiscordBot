@@ -85,6 +85,7 @@ def cancel_query_execution(execution_id):
 
     return response
 
+
 @to_thread
 def get_query_content(query_id):
     execution_id = execute_query(query_id)

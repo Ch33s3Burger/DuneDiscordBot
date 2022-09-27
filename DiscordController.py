@@ -7,6 +7,7 @@ import discord
 
 import DuneApiConnector
 import OutputFileCreator
+from Models import Command
 
 COMMAND_OPTIONS = ['dune', 'help']
 OUTPUT_OPTION_TYPES = ['bar', 'line', 'scatter', 'table', 'single_value']
@@ -52,78 +53,12 @@ class DiscordController(discord.Client):
         if message.author == client.user or not message.content.startswith('!'):
             return
         channel = client.get_channel(message.channel.id)
-        command = message.content[1:]
-        command_correct = self.check_command(command=command)
-        if not command_correct:
-            await channel.send(HELP_TEXT)
+        command = Command(command=message.content)
+        error_message = command.validate_command()
+        if error_message is not None:
+            await channel.send(f'Error Message: {error_message}')
             return
-        ARGS = command.split(' ')
-        await self.process_command(ARGS=ARGS, channel=channel)
-
-    async def process_command(self, ARGS, channel):
-        command = ARGS[0].lower()
-        if command == 'dune':
-            output_type = None
-            if len(ARGS) == 3:
-                output_type = ARGS[2]
-            await channel.send(f'Executing Dune Query with ID: {ARGS[1]}')
-            await self.process_dune_command(channel=channel, query_id=ARGS[1], output_type=output_type)
-        else:
-            raise Exception('Unknown command')
-
-    async def process_dune_command(self, channel, query_id, output_type=None):
-        data = await DuneApiConnector.get_query_content(query_id)
-        if data is None:
-            await channel.send('Query Failed')
-        name = None
-        is_file = False
-        if output_type is None:
-            pass
-            # todo add default type
-        else:
-            output_type = output_type.lower()
-            if output_type == 'bar':
-                name = OutputFileCreator.plot_and_save_bar(data, query_id)
-                is_file = True
-            elif output_type == 'line':
-                name = OutputFileCreator.plot_and_save_line(data, query_id)
-                is_file = True
-            elif output_type == 'scatter':
-                name = OutputFileCreator.plot_and_save_scatter(data, query_id)
-                is_file = True
-            elif output_type == 'table':
-                name = OutputFileCreator.create_and_save_table(data, query_id)
-                is_file = True
-            elif output_type == 'single_value':
-                value = data.to_numpy()[0][0]
-                await channel.send(f'Single Value: {value}')
-            else:
-                raise Exception
-        if is_file and name is not None:
-            await channel.send(file=discord.File(name))
-            os.remove(name)
-
-    def check_command(self, command):
-        if command is None or command == '':
-            return False
-        split_command = command.split(' ')
-        command = split_command[0].lower()
-        if command not in COMMAND_OPTIONS:
-            return False
-        if command == 'help':
-            # Help prints same output as error
-            return False
-        if len(split_command) < 2:
-            return False
-        try:
-            int(split_command[1])
-        except:
-            return False
-        if len(split_command) == 3:
-            output_type = split_command[2].lower()
-            if output_type not in OUTPUT_OPTION_TYPES:
-                return False
-        return True
+        await command.execute_command(channel)
 
 
 if __name__ == '__main__':
