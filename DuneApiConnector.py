@@ -42,9 +42,13 @@ def execute_query(query_id):
 
     url = make_api_url("query", "execute", query_id)
     response = post(url, headers=HEADER)
-    execution_id = response.json()['execution_id']
+    response_json = response.json()
+    error = response_json.get('error')
+    if error is not None:
+        return True, error
+    execution_id = response_json['execution_id']
 
-    return execution_id
+    return False, execution_id
 
 
 def get_query_status(execution_id):
@@ -88,17 +92,18 @@ def cancel_query_execution(execution_id):
 
 @to_thread
 def get_query_content(query_id):
-    execution_id = execute_query(query_id)
+    errors, execution_id = execute_query(query_id)
+    if errors:
+        return execution_id
     while True:
         response = get_query_status(execution_id)
         response_status = response.json()['state']
-        print(f'Status: {response_status}')
         if response_status == 'QUERY_STATE_COMPLETED':
             data = get_query_results(execution_id).json()
             break
         elif response_status == 'QUERY_STATE_EXECUTING':
             time.sleep(1)
         else:
-            return None
+            return response_status
 
     return pd.DataFrame(data=data['result']['rows'])

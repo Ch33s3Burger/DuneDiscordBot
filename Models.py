@@ -1,18 +1,52 @@
 import os
-import threading
 
 import discord
 import numpy as np
 import pandas as pd
 
 import DuneApiConnector
-from OutputFileCreator import plot_and_save_by_type, create_and_save_table
+from OutputTypeCreator import plot_and_save_by_type, create_and_save_table
 
 PREFIX = '!'
 COMMANDS_LIST = ['dune', 'help']
 OUTPUT_TYPE_LIST = ['bar', 'line', 'scatter', 'table', 'single_value']
 OUTPUT_TYPE_PLOT_LIST = ['bar', 'line', 'scatter']
-HELP_TEXT = 'HELP'
+
+HELP_TEXT_COMMAND = "!dune {dune_query_id} {output_type} {x_column} {y_column}\n"
+HELP_TEXT_DUNE_QUERY_ID = 'ID of a Dune Query.'
+HELP_TEXT_OUTPUT_TYPE = f'(optional) Which result type the data should be given back.\n' \
+                        f'> bar: Matplotlib Bar graph\n' \
+                        f'> line: Matplotlib Line graph\n' \
+                        f'> scatter: Matplotlib Scatter graph\n' \
+                        f'> table: data as ".csv" table\n' \
+                        f'> single_value: Single value as text\n'
+HELP_TEXT_X_COLUMN = '(optional) Name or index of the column to use for the x axis'
+HELP_TEXT_Y_COLUMN = '(optional) Name or index of the column to use for the y axis'
+
+
+def get_help_text_embed():
+    embed = discord.Embed(title=HELP_TEXT_COMMAND)
+    embed.add_field(name='dune_query_id', value=HELP_TEXT_DUNE_QUERY_ID, inline=False)
+    embed.add_field(name='output_type', value=HELP_TEXT_OUTPUT_TYPE, inline=False)
+    embed.add_field(name='x_column', value=HELP_TEXT_X_COLUMN, inline=False)
+    embed.add_field(name='y_column', value=HELP_TEXT_Y_COLUMN, inline=False)
+    embed.colour = discord.Color.blue()
+    return embed
+
+
+async def check_and_get_column_name(channel, data, column_name):
+    if isinstance(column_name, str):
+        if column_name.isnumeric():
+            column_index = int(column_name)
+            if column_index < 0 or column_index >= len(data.columns):
+                await channel.send(f'Index {column_index} is out of bounds. Only found {len(data.columns)} columns.')
+                return None
+            return data.columns[column_index]
+        if column_name not in data.columns:
+            await channel.send(
+                f'Column {column_name} does not exist. Continuing without specified column. Available columns are {data.columns}')
+            return None
+    return column_name
 
 
 class Command:
@@ -22,7 +56,7 @@ class Command:
         self.main_command = None
         self.dune_query_id = None
         self.output_type = None
-        self.x_column_name: str = None
+        self.x_column_name = None
         self.y_column_name = None
 
     def validate_command(self):
@@ -53,32 +87,49 @@ class Command:
             if output_type in OUTPUT_TYPE_PLOT_LIST:
                 if len(dune_commands) >= 3:
                     self.x_column_name = dune_commands[2]
-                if len(dune_commands) == 4:
+                if len(dune_commands) >= 4:
                     self.y_column_name = dune_commands[3]
         return None
 
     async def execute_command(self, channel):
         if self.main_command == 'help':
-            channel.send(HELP_TEXT)
+            await channel.send(embed=get_help_text_embed())
         elif self.main_command == 'dune':
             await self.execute_dune_command(channel)
 
     async def execute_dune_command(self, channel):
         await channel.send(f'Executing Dune Query with ID: {self.dune_query_id}')
         data = await DuneApiConnector.get_query_content(self.dune_query_id)
-        if self.output_type is not None:
-            if self.output_type in OUTPUT_TYPE_PLOT_LIST:
-                await self.create_and_send_plot(data, channel)
-            if self.output_type == 'table':
-                await self.create_and_send_table(data, channel)
-            elif self.output_type == 'single_value':
-                await self.send_single_value(data, channel)
+        if data is None or isinstance(data, str):
+            await channel.send(f'Error Message: {data}')
+            return
+        self.x_column_name = await check_and_get_column_name(channel, data, self.x_column_name)
+        self.y_column_name = await check_and_get_column_name(channel, data, self.y_column_name)
+        if self.output_type is None:
+            await self.set_suited_output_type(data)
+        if self.output_type in OUTPUT_TYPE_PLOT_LIST:
+            await self.create_and_send_plot(data, channel)
+        elif self.output_type == 'table':
+            await self.create_and_send_table(data, channel)
+        elif self.output_type == 'single_value':
+            await self.send_single_value(data, channel)
         else:
-            pass
-            # todo ask for more input or default
+            channel.send(f'No suited output_type found. Pls specify')
+
+    async def set_suited_output_type(self, data):
+        num_rows, num_columns = data.shape
+        if num_rows == 1:
+            if num_columns == 1:
+                self.output_type = 'single_value'
+            else:
+                self.output_type = 'table'
+        elif num_rows > 1:
+            self.output_type = 'line'
 
     async def create_and_send_plot(self, data, channel):
         x, y = await self.get_x_and_y_from_dataframe(data, channel)
+        if x is None or y is None:
+            return
         title = f'Dune Query ID: {self.dune_query_id}'
         file_name = plot_and_save_by_type(self.output_type, x, y, self.x_column_name, self.y_column_name, title)
         await channel.send(file=discord.File(file_name))
@@ -101,11 +152,11 @@ class Command:
         num_rows, num_columns = data.shape
         if num_columns == 0 or num_rows == 0:
             await channel.send('Query returned empty table.')
-            return None
+            return None, None
         if num_columns == 1:
             if num_rows == 1:
                 await channel.send(f'Query returned single value: {data[0][0]}')
-                return None
+                return None, None
             else:
                 return np.arrange(num_rows), data[0]
         elif num_columns >= 2:
@@ -113,39 +164,36 @@ class Command:
                 datetime_column = self.get_datetime_column_if_exits(data)
                 if datetime_column is None:
                     if self.y_column_name is None:
-                        self.x_column_name = 0 # first column
+                        self.x_column_name = 0  # first column
                     else:
                         column_names = data.columns
-                        column_names_without_y = column_names[column_names != self.y_column_name]
-                        self.x_column_name = column_names_without_y[0]
+                        column_names_without_y_column = column_names[column_names != self.y_column_name]
+                        self.x_column_name = column_names_without_y_column[0]
                 else:
                     self.x_column_name = datetime_column
             if self.y_column_name is None:
-                column_names_without_x = data.columns
-                column_names_without_x = column_names_without_x[column_names_without_x != self.x_column_name]
+                column_names = data.columns
+                column_names_without_x = column_names[column_names != self.x_column_name]
                 if len(column_names_without_x) > 1:
-                    await channel.send('Multiple options found for y axis. Taking available first column. To change the y axis adjust your parameters.')
+                    await channel.send(
+                        'Multiple options found for y axis. Taking available first column. To change the y axis adjust your parameters.')
                 self.y_column_name = column_names_without_x[0]
-        return await self.get_x_and_y(channel, data)
+        return await self.get_x_and_y(data)
 
-    async def get_x_and_y(self, channel, data):
-        x = y = None
-        if self.x_column_name.isnumeric():
-            self.x_column_name = int(self.x_column_name)
-            data = data.sort_values([data.columns[self.x_column_name]])
-            x = data.iloc[:, self.x_column_name]
-        elif self.x_column_name in data.columns:
-            data = data.sort_values([self.x_column_name])
-            x = data[self.x_column_name]
-        else:
-            await channel.send(f'Column or column index {self.x_column_name} does not exist.')
-        if self.y_column_name.isnumeric():
-            self.y_column_name = int(self.y_column_name)
-            y = data.iloc[:, self.y_column_name]
-        elif self.y_column_name in data.columns:
-            y = data[self.y_column_name]
-        else:
-            await channel.send(f'Column or column index {self.y_column_name} does not exist.')
+    async def get_x_and_y(self, data):
+        if data[self.x_column_name].dtype == 'O':
+            try:
+                data[self.x_column_name] = pd.to_datetime(data[self.x_column_name])
+            except:
+                pass
+        if data[self.y_column_name].dtype == 'O':
+            try:
+                data[self.y_column_name] = pd.to_datetime(data[self.y_column_name])
+            except:
+                pass
+        data = data.sort_values([self.x_column_name])
+        x = data[self.x_column_name]
+        y = data[self.y_column_name]
         return x, y
 
     def get_datetime_column_if_exits(self, data):
@@ -158,14 +206,13 @@ class Command:
                     data[column_name] = pd.to_datetime(data[column_name])
                     datetime_column = column_name
                 except:
-                    print('failed to transform object to datetime')
+                    pass
         return datetime_column
 
 
 if __name__ == '__main__':
     c = Command('!help')
     assert c.validate_command() is None
-    c.execute_command()
     c = Command('!dune')
     assert c.validate_command() == 'Missing Dune Query ID.'
     c = Command('!dune 12345')
