@@ -3,6 +3,7 @@ Created on Sat Sep 17 14:23:19 2022
 
 @author: Lorenz
 """
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 
@@ -28,12 +29,12 @@ def plot_and_save_by_type(output_type, x, y, x_label, y_label, title):
     fig.figimage(logo, s[0] / 2 - 40, s[1] / 2 - 30, alpha=.3, zorder=1)
 
     # save image as png
-    name = f'{title}_{output_type}.png'
+    name = f'{title}_{output_type}_{datetime.now()}.png'
     plt.savefig(name)
     return name
 
 
 def create_and_save_table(data, query_id):
-    name = query_id + '_table.csv'
+    name = f'{query_id}_table_{datetime.now()}.csv'
     data.to_csv(name)
     return name

@@ -1,6 +1,8 @@
 import os
+from typing import Any
 
 import discord
+from discord import Intents
 
 from Cache import DuneQueryCache
 from Models import Command
@@ -13,10 +15,13 @@ if DISCORD_BOT_TOKEN is None:
 if GUILD_ID is None:
     raise EnvironmentError('Set Environment variable: GUILD_ID')
 
-cache = DuneQueryCache()
-
 
 class DiscordController(discord.Client):
+
+    def __init__(self, *, intents: Intents, **options: Any):
+        super().__init__(intents=intents, **options)
+        self.cache = DuneQueryCache()
+
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
 
@@ -24,7 +29,7 @@ class DiscordController(discord.Client):
         if message.author == client.user or not message.content.startswith('!'):
             return
         channel = client.get_channel(message.channel.id)
-        command = Command(command=message.content, cache=cache)
+        command = Command(command=message.content, cache=self.cache)
         error_message = command.validate_command()
         if error_message is not None:
             await channel.send(f'Error Message: {error_message}')

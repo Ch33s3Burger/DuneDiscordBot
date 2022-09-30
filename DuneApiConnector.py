@@ -100,10 +100,8 @@ def get_query_content(query_id):
         response_status = response.json()['state']
         if response_status == 'QUERY_STATE_COMPLETED':
             data = get_query_results(execution_id).json()
-            break
+            return pd.DataFrame(data=data['result']['rows'])
         elif response_status == 'QUERY_STATE_EXECUTING':
             time.sleep(1)
         else:
             return response_status
-
-    return pd.DataFrame(data=data['result']['rows'])
