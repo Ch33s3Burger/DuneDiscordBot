@@ -6,6 +6,7 @@ import pandas as pd
 
 import DuneApiConnector
 from OutputTypeCreator import plot_and_save_by_type, create_and_save_table
+from Cache import DuneQueryCache
 
 PREFIX = '!'
 COMMANDS_LIST = ['dune', 'help']
@@ -14,12 +15,12 @@ OUTPUT_TYPE_PLOT_LIST = ['bar', 'line', 'scatter']
 
 HELP_TEXT_COMMAND = "!dune {dune_query_id} {output_type} {x_column} {y_column}\n"
 HELP_TEXT_DUNE_QUERY_ID = 'ID of a Dune Query.'
-HELP_TEXT_OUTPUT_TYPE = f'(optional) Which result type the data should be given back.\n' \
-                        f'> bar: Matplotlib Bar graph\n' \
-                        f'> line: Matplotlib Line graph\n' \
-                        f'> scatter: Matplotlib Scatter graph\n' \
-                        f'> table: data as ".csv" table\n' \
-                        f'> single_value: Single value as text\n'
+HELP_TEXT_OUTPUT_TYPE = '(optional) Which result type the data should be given back.\n' \
+                        '> bar: Matplotlib Bar graph\n' \
+                        '> line: Matplotlib Line graph\n' \
+                        '> scatter: Matplotlib Scatter graph\n' \
+                        '> table: data as ".csv" table\n' \
+                        '> single_value: Single value as text\n'
 HELP_TEXT_X_COLUMN = '(optional) Name or index of the column to use for the x axis'
 HELP_TEXT_Y_COLUMN = '(optional) Name or index of the column to use for the y axis'
 
@@ -51,13 +52,14 @@ async def check_and_get_column_name(channel, data, column_name):
 
 class Command:
 
-    def __init__(self, command: str):
+    def __init__(self, command: str, cache: DuneQueryCache):
         self.command = command
         self.main_command = None
         self.dune_query_id = None
         self.output_type = None
         self.x_column_name = None
         self.y_column_name = None
+        self.cache = cache
 
     def validate_command(self):
         if not self.command.startswith(PREFIX):
@@ -98,11 +100,16 @@ class Command:
             await self.execute_dune_command(channel)
 
     async def execute_dune_command(self, channel):
-        await channel.send(f'Executing Dune Query with ID: {self.dune_query_id}')
-        data = await DuneApiConnector.get_query_content(self.dune_query_id)
-        if data is None or isinstance(data, str):
-            await channel.send(f'Error Message: {data}')
-            return
+        data = None
+        if self.cache.is_in_cache(self.dune_query_id):
+            data = self.cache.get_from_cache(self.dune_query_id)
+        if data is None:
+            await channel.send(f'Executing Dune Query with ID: {self.dune_query_id}')
+            data = await DuneApiConnector.get_query_content(self.dune_query_id)
+            self.cache.add_to_cache(self.dune_query_id, data)
+            if data is None or isinstance(data, str):
+                await channel.send(f'Error Message: {data}')
+                return
         self.x_column_name = await check_and_get_column_name(channel, data, self.x_column_name)
         self.y_column_name = await check_and_get_column_name(channel, data, self.y_column_name)
         if self.output_type is None:
@@ -164,7 +171,7 @@ class Command:
                 datetime_column = self.get_datetime_column_if_exits(data)
                 if datetime_column is None:
                     if self.y_column_name is None:
-                        self.x_column_name = 0  # first column
+                        self.x_column_name = data.columns[0]  # first column
                     else:
                         column_names = data.columns
                         column_names_without_y_column = column_names[column_names != self.y_column_name]

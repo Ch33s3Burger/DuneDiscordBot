@@ -2,6 +2,7 @@ import os
 
 import discord
 
+from Cache import DuneQueryCache
 from Models import Command
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -12,6 +13,9 @@ if DISCORD_BOT_TOKEN is None:
 if GUILD_ID is None:
     raise EnvironmentError('Set Environment variable: GUILD_ID')
 
+cache = DuneQueryCache()
+# cache.run()
+
 
 class DiscordController(discord.Client):
     async def on_ready(self):
@@ -21,7 +25,7 @@ class DiscordController(discord.Client):
         if message.author == client.user or not message.content.startswith('!'):
             return
         channel = client.get_channel(message.channel.id)
-        command = Command(command=message.content)
+        command = Command(command=message.content, cache=cache)
         error_message = command.validate_command()
         if error_message is not None:
             await channel.send(f'Error Message: {error_message}')
