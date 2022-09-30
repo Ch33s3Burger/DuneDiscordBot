@@ -14,7 +14,6 @@ if GUILD_ID is None:
     raise EnvironmentError('Set Environment variable: GUILD_ID')
 
 cache = DuneQueryCache()
-# cache.run()
 
 
 class DiscordController(discord.Client):

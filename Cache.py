@@ -1,4 +1,3 @@
-import threading
 import datetime
 
 CACHE_MAX_SIZE = 10
@@ -41,7 +40,7 @@ class DuneQueryCache:
         self.delete_from_cache(oldest_key)
 
     def delete_too_old_entries(self):
-        if self.last_cache_clear - datetime.datetime.now() > CHECK_FOR_CACHE_CLEAR:
+        if datetime.datetime.now() - self.last_cache_clear > CHECK_FOR_CACHE_CLEAR:
             print('Deleting too old entries')
             for key, value in self.cache.items():
                 time_passed_since_creation = datetime.datetime.now() - value[0]
