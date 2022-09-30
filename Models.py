@@ -106,10 +106,10 @@ class Command:
         if data is None:
             await channel.send(f'Executing Dune Query with ID: {self.dune_query_id}')
             data = await DuneApiConnector.get_query_content(self.dune_query_id)
-            self.cache.add_to_cache(self.dune_query_id, data)
             if data is None or isinstance(data, str):
                 await channel.send(f'Error Message: {data}')
                 return
+            self.cache.add_to_cache(self.dune_query_id, data)
         self.x_column_name = await check_and_get_column_name(channel, data, self.x_column_name)
         self.y_column_name = await check_and_get_column_name(channel, data, self.y_column_name)
         if self.output_type is None:
@@ -215,20 +215,3 @@ class Command:
                 except:
                     pass
         return datetime_column
-
-
-if __name__ == '__main__':
-    c = Command('!help')
-    assert c.validate_command() is None
-    c = Command('!dune')
-    assert c.validate_command() == 'Missing Dune Query ID.'
-    c = Command('!dune 12345')
-    assert c.validate_command() is None
-    c = Command('!dune 12345 5')
-    assert c.validate_command() == "Unknown Output Type 5. Available Output Types: ['bar', 'line', 'scatter', 'table', 'single_value']."
-    c = Command('!dune 12345 bar')
-    assert c.validate_command() is None
-    c = Command('!dune 12345 bar 5')
-    assert c.validate_command() is None
-    c = Command('!dune 12345 bar 0 1')
-    assert c.validate_command() is None
